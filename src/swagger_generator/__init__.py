@@ -1,6 +1,13 @@
 from copy import deepcopy
 
 
+class SwaggerModelGeneratorError(Exception):
+    pass
+
+
+MODEL_LIBS = {}
+
+
 class Transformer:
     def __init__(self, schema: dict):
         self._schemas = schema
@@ -38,3 +45,42 @@ class Transformer:
 
     def _expand_props(self, props: dict) -> dict:
         return {k: self.expand_schema_model(v) for k, v in props.items()}
+
+
+class Generator:
+    _schemas = {}
+
+    def __init__(
+            self,
+            models_dir,
+            models_lib='schematics',
+            base_model=object,
+            additional_props=None,
+            additional_defaults=None
+    ):
+        self.models_dir = models_dir
+        self.models_lib = models_lib
+        self.base_model = base_model
+        self.additional_props = additional_props
+        self.additional_defaults = additional_defaults
+
+    @property
+    def builder_cls(self):
+        return MODEL_LIBS[self.models_lib]
+
+    @property
+    def schemas(self):
+        return self._schemas
+
+    def get_builder(self, module):
+        return self.builder_cls(self.schemas, module)
+
+    def build(self, schema, module):
+        self._transform(schema)
+        self.get_builder(module).generate_schema_from_swagger(schema)
+
+    def _transform(self, schema):
+        return Transformer(self.schemas).expand_schema(schema)
+
+    def _update(self, schema):
+        self.schemas.update(schema)
